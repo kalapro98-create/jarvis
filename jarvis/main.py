@@ -5,14 +5,14 @@ class work(Use):
         data = self.load_data()
         if self.open_site(text, data):
             return
+        if self.give_info(text):
+            return
         if self.mathematics(text, data):
             return
         if self.save_sth(text):
             return
         if self.open_music(text):
             return
-        if self.open_google(text):
-            return  
         if self.time(text):
             return
         if self.com_control(text):
@@ -22,6 +22,8 @@ class work(Use):
         if self.app(text,data):
             return
         if self.screen(text):
+            return
+        if self.find_channel(text):
             return
     def run(self):
         while True:

@@ -1,12 +1,13 @@
-from datetime import datetime
+from datetime import datetime 
 import webbrowser
 import json
 import re
-from voice import Listen,Voice
+from voice import Listen, Voice
 from music import play_youtube_audio, stop_music, is_music_playing
 import os
 import urllib.parse
 import pyautogui
+import yt_dlp
 class Use(Listen):
     def __init__(self):
         super().__init__()
@@ -23,6 +24,7 @@ class Use(Listen):
                     webbrowser.open(link)
                     return True
             return False
+    
     def save_sth(self,text):
         if "save" in text:
             Voice.say("what i should save?")
@@ -95,20 +97,6 @@ class Use(Listen):
                     Voice.say("music name not found")
                     return True
         return False
-    def open_google(self, text):
-        choice=["find information in google","find in google","search"]
-        for command in choice:
-            if command in text:
-                Voice.say("what should i find")
-                text9 = self.lis()
-                if text9 == "":
-                    Voice.say("I did not hear what to search")
-                    return True
-                url = "https://www.google.com/search?q=" + urllib.parse.quote(text9)
-                webbrowser.open(url)
-                Voice.say("Searching " + text9)
-                return True
-        return False
     def time(self,text):
         ktime=["what time","tell me tame","what time is it","time"]
         kdate=["tell me about date","what date","current date","today date"]
@@ -129,49 +117,24 @@ class Use(Listen):
         words=["shut down computer","restart computer","lock computer"]
         for  i in words:
             if i in text:
-                if "shut down computer" in text:
                     Voice.say("Are you sure? ")
                     text1=self.lis()
                     now = datetime.now()
-                    self.saf_answer("shut down computer",text1,now)
+                    self.saf_answer(i,text1,now)
                     if "yes" in text1:
-                        os.system("shutdown /s /t 1")
+                        if i=="shut down computer":
+                            os.system("shutdown /s /t 1")
+                            return True
+                        elif i=="restart computer":
+                            os.system("shutdown /r /t 1")
+                            return True
+                        elif i=="lock computer":
+                            os.system("rundll32.exe user32.dll,LockWorkStation")
+                            return True
+                    else:
+                        Voice.say("cancelled")
                         return True
-                    else:Voice.say("cancelled")
-                elif "restart computer" in text:
-                    Voice.say("Are you sure? ")
-                    text1=self.lis()
-                    now = datetime.now()
-                    self.saf_answer("restart computer",text1,now)
-                    if "yes" in text1:
-                        os.system("shutdown /r /t 1")
-                        return True
-                    else:Voice.say("cancelled")
-                elif "lock computer" in text:
-                    Voice.say("Are you sure? ")
-                    text1=self.lis()
-                    now = datetime.now()
-                    self.saf_answer("lock computer",text1,now)
-                    if "yes" in text1:
-                        os.system("rundll32.exe user32.dll,LockWorkStation")
-                        return True
-                    else:Voice.say("cancelled")
-                else: return False
-    def find_youtube(self,text):
-        words=["find video in youtube","find video","find channel"]
-        for i in words:
-            if i in text:
-                Voice.say("which video do you want to find? ")
-                text1=self.lis()
-                if text1=="":
-                    Voice.say("I did not hear what to search")
-                    return True
-                if text1 !="":
-                    query = urllib.parse.quote(text1)
-                    link="https://www.youtube.com/results?search_query=" + query
-                    webbrowser.open(link)
-                    return True
-                return False
+        return False
     def app(self,text,data):
             if "app" in text:
                 Voice.say("which app i should open? ")
@@ -202,4 +165,85 @@ class Use(Listen):
             screenshot.save(file_path)
             Voice.say("Screenshot saved")
             return True
+        return False
+    def find_youtube(self, text):
+        words = ["find video in youtube", "find video",]
+        for i in words:
+            if i in text:
+                query = text.replace(i, "").strip()
+                if not query:
+                    Voice.say("what video do you want to find?")
+                    query = self.lis()
+                if not query:
+                    Voice.say("I did not hear what to search")
+                    return True
+                Voice.say("finding and opening " + query)
+                video_url = self._get_first_youtube_url(query)
+                if video_url:
+                    webbrowser.open(video_url)
+                else:
+                    link = "https://www.youtube.com/results?search_query=" + urllib.parse.quote(query)
+                    webbrowser.open(link)
+                return True
+        return False
+    def _get_first_youtube_url(self, query: str) -> str:
+        ydl_opts = {
+            "format": "best",
+            "quiet": True,
+            "noplaylist": True,
+            "default_search": "ytsearch1",
+        }
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(query, download=False)
+                if "entries" in info:
+                    entry = info["entries"][0]
+                else:
+                    entry = info
+                return "https://www.youtube.com/watch?v=" + entry["id"]
+        except Exception as e:
+            print("YouTube search error:", e)
+            return ""
+    def find_channel(self,text):
+        if "find channel" in text:
+            query = text.replace("find channel", "").strip()
+            if not query:
+                    Voice.say("what channel do you want to find?")
+                    query = self.lis()
+            if not query:
+                    Voice.say("I did not hear what to search")
+                    return True
+            url="https://www.youtube.com/results?search_query="+urllib.parse.quote(query + " channel")
+            webbrowser.open(url)
+            return True
+        return False
+    def give_info(self, text):
+        import requests
+        
+        triggers = ["give me information about", "tell me about", "who is", "what is"]
+        
+        for trigger in triggers:
+            if trigger in text:
+                query = text.replace(trigger, "").strip()
+                if not query:
+                    Voice.say("What exactly do you want to know?")
+                    return True
+                Voice.say(f"Searching for {query}")
+                url = "https://en.wikipedia.org/w/api.php"
+                params = {"action": "query","format": "json","prop": "extracts","exintro": True,"explaintext": True,"titles": query,"redirects": 1}
+                try:
+                    headers = {'User-Agent': 'JarvisAssistant/2.0'}
+                    response = requests.get(url, params=params, headers=headers).json()
+                    pages = response.get("query", {}).get("pages", {})
+                    if not pages or "-1" in pages:
+                        Voice.say("I couldn't find any information on this topic.")
+                        return True
+                    page_id = list(pages.keys())[0]
+                    full_text = pages[page_id]["extract"]
+                    sentences = full_text.split(". ")
+                    short_info = sentences[0] + "."
+                    Voice.say(short_info)
+                except Exception:
+                    Voice.say("An error occurred while fetching data.")
+                return True
         return False

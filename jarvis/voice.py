@@ -10,7 +10,7 @@ class Voice:
         file = "voice.mp3"
         try:
             tts = edge_tts.Communicate(
-                text,Voice.VOICE,rate="-10%",pitch="-5Hz",volume="+10%"
+                text, Voice.VOICE, rate="-10%", pitch="-5Hz", volume="+10%"
             )
             await tts.save(file)
             pygame.mixer.init()
@@ -24,6 +24,7 @@ class Voice:
                 os.remove(file)
         except Exception as e:
             print("Speech error:", e)
+
     @staticmethod
     def say(text):
         asyncio.run(Voice.speak(text))
